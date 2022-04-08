@@ -16,6 +16,7 @@ from ..postprocessing import detector_postprocess
 from ..proposal_generator import build_proposal_generator
 from ..roi_heads import build_roi_heads
 from .build import META_ARCH_REGISTRY
+from .gcn import gcn_adaptive_loss
 
 __all__ = ["GeneralizedRCNN", "ProposalNetwork"]
 
@@ -163,7 +164,19 @@ class GeneralizedRCNN(nn.Module):
             proposals = [x["proposals"].to(self.device) for x in batched_inputs]
             proposal_losses = {}
 
-        _, detector_losses = self.roi_heads(images, features, proposals, gt_instances)
+        #_, detector_losses = self.roi_heads(images, features, proposals, gt_instances, images_id)
+        selected_proposals, roi_ret = self.roi_heads(
+            images, features, proposals, gt_instances
+        )
+        detector_losses, cls_prob, pooled_feat = roi_ret
+        if not self.Warmup:
+            rois = [x.proposal_boxes.tensor for x in selected_proposals]
+            pooled_feat = torch.view(len(batched_inputs), pooled_feat.size(0)/ len(batched_inputs), pooled_feat.size(1)).detach() # torch.Size([2, 512, 1024])
+            cls_prob = torch.stack(cls_prob, dim = 0).detach() # torch.Size([2, 512, 61])
+            rois = torch.stack(rois, dim = 0).detach() # torch.Size([2, 512, 4])
+            #pdb.set_trace()
+            self.gp, inter_loss = gcn_adaptive_loss(pooled_feat=pooled_feat, cls_prob=cls_prob, rois=rois, batch_size=len(batched_inputs), gp=self.gp)
+            detector_losses["loss_inter"] = 0.1 * inter_loss
         if self.vis_period > 0:
             storage = get_event_storage()
             if storage.iter % self.vis_period == 0:

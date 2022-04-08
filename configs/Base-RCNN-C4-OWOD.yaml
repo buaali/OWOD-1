@@ -6,7 +6,7 @@ MODEL:
   ROI_HEADS:
     #    NUM_CLASSES: 81 # 0-79 Known class; 80 -> Unknown; 81 -> Background.
     NUM_CLASSES: 81
-    NAME: "Res5ROIHeads"
+    NAME: "StandardROIHeads"
   WEIGHTS: "detectron2://ImageNetPretrained/MSRA/R-50.pkl"
   MASK_ON: False
   RESNETS:
