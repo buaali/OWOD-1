@@ -9,8 +9,7 @@ def gcn_adaptive_loss(pooled_feat, cls_prob, rois, batch_size, gp, epsilon = 1e-
     # get the feature embedding of every class for source and target domains wiith GCN
     #pooled_feat = pooled_feat.view(batch_size, pooled_feat.size(0) // batch_size, pooled_feat.size(1))
     #cls_prob = cls_prob.view(batch_size, cls_prob.size(0) // batch_size, cls_prob.size(1))
-    import pdb
-    pdb.set_trace()
+
 
     num_classes = cls_prob.size(2)
     class_feat = list()
@@ -43,13 +42,13 @@ def gcn_adaptive_loss(pooled_feat, cls_prob, rois, batch_size, gp, epsilon = 1e-
 
     class_feat = torch.stack(class_feat, dim = 0)
     #update gp,tgp
-    for c in range(0, num_classes - 1):
+    for c in range(0, num_classes):
         if (gp[c] == 0).all():
             gp[c] = class_feat[c]
             continue
         alpha = (F.cosine_similarity(gp[c], class_feat[c], dim=0).item() + 1) / 2.0
         gp[c] = (1.0 - alpha) * gp[c] + alpha * class_feat[c]
-
+    
     # get the intra-class and inter-class adaptation loss
     inter_loss = 0
 
@@ -64,7 +63,7 @@ def gcn_adaptive_loss(pooled_feat, cls_prob, rois, batch_size, gp, epsilon = 1e-
                 torch.max(margin - torch.sqrt(distance(tmp_src_feat_1, tmp_src_feat_2)),
                           torch.tensor(0).float().cuda()), 2.0)
 
-    inter_loss = inter_loss / (gp.size(0) - 1) * 2
+    inter_loss = inter_loss / (gp.size(0) - 1) * gp.size(0)
     return gp, inter_loss
 
 def distance( src_feat, tgt_feat):
